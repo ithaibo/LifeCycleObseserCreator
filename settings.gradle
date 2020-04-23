@@ -1,0 +1,3 @@
+rootProject.name='LoginStateObsever'
+include ':app'
+include ':library'
