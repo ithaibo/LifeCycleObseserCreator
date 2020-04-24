@@ -1,4 +1,4 @@
-package com.howbuy.login;
+package com.howbuy.login.internal;
 
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleObserver;

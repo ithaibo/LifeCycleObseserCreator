@@ -1,8 +1,10 @@
-package com.howbuy.login;
+package com.howbuy.login.internal;
 
 import android.support.annotation.Nullable;
 
-public class LifecycleDecorator<T> implements LifeEventObserver{
+import com.howbuy.login.ClearListener;
+
+public class LifecycleDecorator<T> implements LifeEventObserver {
     public T target;
     ClearListener<T> listener;
 

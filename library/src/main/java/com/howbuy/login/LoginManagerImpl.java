@@ -4,6 +4,8 @@ import android.arch.lifecycle.LifecycleOwner;
 import android.support.annotation.NonNull;
 import android.util.SparseArray;
 
+import com.howbuy.login.internal.LifecycleDecorator;
+
 public class LoginManagerImpl implements LoginManager {
     private SparseArray<LogoutObserver> logoutObserverSparseArray = new SparseArray<>();
     private SparseArray<LoginObserver> loginObserverSparseArray = new SparseArray<>();
