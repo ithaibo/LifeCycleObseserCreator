@@ -7,7 +7,7 @@ import android.util.SparseArray;
 public class LoginManagerImpl implements LoginManager{
     private SparseArray<LogoutObserver> logoutObserverSparseArray = new SparseArray<>();
     private SparseArray<LoginObserver> loginObserverSparseArray = new SparseArray<>();
-    private ProxyInstanceFactory proxyInstanceCreator;
+    private ClearProxyFactory proxyInstanceCreator;
 
     public static LoginManager getInstance() {
         return H.instance;
@@ -26,28 +26,47 @@ public class LoginManagerImpl implements LoginManager{
     public void addLoginObserver(@NonNull final LoginObserver observer,
                                  @NonNull LifecycleOwner lifecycleOwner) {
         final int key = key(observer);
-        loginObserverSparseArray.put(key,
-                createProxyInstance(LoginObserver.class, observer, lifecycleOwner));
-        lifecycleOwner.getLifecycle().addObserver(new LifeEventObserver() {
-            @Override
-            public void clear() {
-                loginObserverSparseArray.remove(key);
-            }
-        });
+//        loginObserverSparseArray.put(key,
+//                createProxyInstance(LoginObserver.class, observer, lifecycleOwner));
+//        lifecycleOwner.getLifecycle().addObserver(new LifeEventObserver() {
+//            @Override
+//            public void clear() {
+//                loginObserverSparseArray.remove(key);
+//            }
+//        });
+        loginObserverSparseArray.put(key, observer);
+        lifecycleOwner.getLifecycle()
+                .addObserver(new LifecycleDecorator<>(observer,
+                        new ClearListener<LoginObserver>() {
+                            @Override
+                            public void onClear(@NonNull LoginObserver target) {
+                                loginObserverSparseArray.remove(key(target));
+                            }
+                        }));
     }
 
     @Override
     public void addLogoutObserver(@NonNull LogoutObserver observer,
                                   @NonNull LifecycleOwner lifecycleOwner) {
         final int key = key(observer);
-        logoutObserverSparseArray.put(key,
-                createProxyInstance(LogoutObserver.class, observer, lifecycleOwner));
-        lifecycleOwner.getLifecycle().addObserver(new LifeEventObserver() {
-            @Override
-            public void clear() {
-                loginObserverSparseArray.remove(key);
-            }
-        });
+//        final LogoutObserver observerProxy = createProxyInstance(LogoutObserver.class,
+//                observer,
+//                lifecycleOwner);
+//        logoutObserverSparseArray.put(key, observerProxy);
+//        lifecycleOwner.getLifecycle().addObserver(new LifeEventObserver() {
+//            @Override
+//            public void clear() {
+//                logoutObserverSparseArray.remove(key);
+//            }
+//        });
+        logoutObserverSparseArray.put(key, observer);
+        lifecycleOwner.getLifecycle().addObserver(new LifecycleDecorator<>(observer,
+                new ClearListener<LogoutObserver>() {
+                    @Override
+                    public void onClear(LogoutObserver target) {
+                        logoutObserverSparseArray.remove(key(target));
+                    }
+                }));
     }
 
     @Override

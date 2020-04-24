@@ -10,17 +10,17 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
-public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, InvocationHandlerCache{
+public class DynamicProxyInstanceCreator implements ClearProxyFactory, InvocationHandlerCache{
     private final Map<Class, Queue<InvocationHandler>> invokePool = new HashMap<>(4);
     private final Map<Object, LifeEventObserver> lifeEventObserverMap = new HashMap<>();
 
+    @SuppressWarnings("unchecked")
     @Override
     public <T> T create(@NonNull Class<T> clazz,
                         @NonNull T delegate,
@@ -51,13 +51,12 @@ public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, Invoca
         shotHandler = (InvocationHandlerImpl<T>) cache.shot(clazz);
         if (null == shotHandler) {
             //create it directly
-            Log.w("ProxyInstance", "invocationHandler cache not shot, class: " + clazz.getName());
             return new InvocationHandlerImpl<>(delegate,
                     clazz,
                     DynamicProxyInstanceCreator.this,
                     lifecycleOwner);
         } else {
-            Log.w("ProxyInstance", "invocationHandler cache shot, class: " + clazz.getName());
+            //reuse cache
             shotHandler.lifecycleOwner = lifecycleOwner;
             shotHandler.creatorRf = DynamicProxyInstanceCreator.this;
             shotHandler.delegate = delegate;
@@ -73,7 +72,6 @@ public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, Invoca
             invokePool.put(key,  cacheQueue);
         }
          cacheQueue.add(invocationHandler);
-//        Log.w("InvocationHandlerCache", "cache one invocationHandler, class: " + key.getName());
     }
 
     @Override
