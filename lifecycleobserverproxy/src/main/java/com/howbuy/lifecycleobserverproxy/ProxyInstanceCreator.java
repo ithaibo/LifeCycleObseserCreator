@@ -1,4 +1,4 @@
-package com.howbuy.login;
+package com.howbuy.lifecycleobserverproxy;
 
 import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.LifecycleOwner;
@@ -12,11 +12,10 @@ import java.lang.reflect.Proxy;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
-public class DynamicProxyInstanceCreator implements ClearProxyFactory, InvocationHandlerCache{
+public class ProxyInstanceCreator implements ClearProxyFactory, InvocationHandlerCache {
     private final Map<Class, Queue<InvocationHandler>> invokePool = new HashMap<>(4);
     private final Map<Object, LifeEventObserver> lifeEventObserverMap = new HashMap<>();
 
@@ -28,7 +27,7 @@ public class DynamicProxyInstanceCreator implements ClearProxyFactory, Invocatio
         InvocationHandler invocationHandler = obtainInvocationHandler(clazz,
                 delegate,
                 lifecycleOwner);
-        T instance = (T) Proxy.newProxyInstance(LoginManagerImpl.class.getClassLoader(),
+        T instance = (T) Proxy.newProxyInstance(this.getClass().getClassLoader(),
                 new Class[]{clazz, LifeEventObserver.class},
                 invocationHandler);
         //register lifecycle observer
@@ -47,18 +46,18 @@ public class DynamicProxyInstanceCreator implements ClearProxyFactory, Invocatio
                                                           @NonNull T delegate,
                                                           @NonNull LifecycleOwner lifecycleOwner) {
         InvocationHandlerImpl<T> shotHandler;
-        InvocationHandlerCache cache = DynamicProxyInstanceCreator.this;
+        InvocationHandlerCache cache = ProxyInstanceCreator.this;
         shotHandler = (InvocationHandlerImpl<T>) cache.shot(clazz);
         if (null == shotHandler) {
             //create it directly
             return new InvocationHandlerImpl<>(delegate,
                     clazz,
-                    DynamicProxyInstanceCreator.this,
+                    ProxyInstanceCreator.this,
                     lifecycleOwner);
         } else {
             //reuse cache
             shotHandler.lifecycleOwner = lifecycleOwner;
-            shotHandler.creatorRf = DynamicProxyInstanceCreator.this;
+            shotHandler.creatorRf = ProxyInstanceCreator.this;
             shotHandler.delegate = delegate;
             return shotHandler;
         }
@@ -98,15 +97,14 @@ public class DynamicProxyInstanceCreator implements ClearProxyFactory, Invocatio
     private static class InvocationHandlerImpl<T> implements InvocationHandler {
         private static Method clearMethod;
         private Class<T> tClass;
-        private DynamicProxyInstanceCreator creatorRf;
+        private ProxyInstanceCreator creatorRf;
         private LifecycleOwner lifecycleOwner;
 
         private T delegate;
-        private List<Method> tMethodList;
 
         InvocationHandlerImpl(T delegate,
                               Class<T> tClass,
-                              DynamicProxyInstanceCreator creator,
+                              ProxyInstanceCreator creator,
                               LifecycleOwner lifecycleOwner) {
             this.delegate = delegate;
             this.tClass = tClass;
@@ -134,7 +132,7 @@ public class DynamicProxyInstanceCreator implements ClearProxyFactory, Invocatio
         }
 
         private Object handleInvocationClearMethodOfLifeEventObserver() {
-            DynamicProxyInstanceCreator creator = creatorRf;
+            ProxyInstanceCreator creator = creatorRf;
             if (null != creator) {
                 creator.cache(InvocationHandlerImpl.this.tClass, InvocationHandlerImpl.this);
                 creator.removeObserverFromLifecycleOwner(lifecycleOwner, delegate);

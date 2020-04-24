@@ -1,3 +1,5 @@
 rootProject.name='LoginStateObsever'
 include ':app'
 include ':library'
+include ':observable'
+include ':lifecycleobserverproxy'

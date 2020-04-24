@@ -4,10 +4,9 @@ import android.arch.lifecycle.LifecycleOwner;
 import android.support.annotation.NonNull;
 import android.util.SparseArray;
 
-public class LoginManagerImpl implements LoginManager{
+public class LoginManagerImpl implements LoginManager {
     private SparseArray<LogoutObserver> logoutObserverSparseArray = new SparseArray<>();
     private SparseArray<LoginObserver> loginObserverSparseArray = new SparseArray<>();
-    private ClearProxyFactory proxyInstanceCreator;
 
     public static LoginManager getInstance() {
         return H.instance;
@@ -26,14 +25,6 @@ public class LoginManagerImpl implements LoginManager{
     public void addLoginObserver(@NonNull final LoginObserver observer,
                                  @NonNull LifecycleOwner lifecycleOwner) {
         final int key = key(observer);
-//        loginObserverSparseArray.put(key,
-//                createProxyInstance(LoginObserver.class, observer, lifecycleOwner));
-//        lifecycleOwner.getLifecycle().addObserver(new LifeEventObserver() {
-//            @Override
-//            public void clear() {
-//                loginObserverSparseArray.remove(key);
-//            }
-//        });
         loginObserverSparseArray.put(key, observer);
         lifecycleOwner.getLifecycle()
                 .addObserver(new LifecycleDecorator<>(observer,
@@ -49,16 +40,6 @@ public class LoginManagerImpl implements LoginManager{
     public void addLogoutObserver(@NonNull LogoutObserver observer,
                                   @NonNull LifecycleOwner lifecycleOwner) {
         final int key = key(observer);
-//        final LogoutObserver observerProxy = createProxyInstance(LogoutObserver.class,
-//                observer,
-//                lifecycleOwner);
-//        logoutObserverSparseArray.put(key, observerProxy);
-//        lifecycleOwner.getLifecycle().addObserver(new LifeEventObserver() {
-//            @Override
-//            public void clear() {
-//                logoutObserverSparseArray.remove(key);
-//            }
-//        });
         logoutObserverSparseArray.put(key, observer);
         lifecycleOwner.getLifecycle().addObserver(new LifecycleDecorator<>(observer,
                 new ClearListener<LogoutObserver>() {
@@ -80,25 +61,15 @@ public class LoginManagerImpl implements LoginManager{
     }
 
     private void dispatchLogoutEvent() {
-        for (int i =0; i < logoutObserverSparseArray.size(); i++) {
+        for (int i = 0; i < logoutObserverSparseArray.size(); i++) {
             logoutObserverSparseArray.valueAt(i).onLogout();
         }
     }
 
     private void dispatchLoginEvent() {
-        for (int i =0; i < loginObserverSparseArray.size(); i++) {
+        for (int i = 0; i < loginObserverSparseArray.size(); i++) {
             loginObserverSparseArray.valueAt(i).onLogin();
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T createProxyInstance(@NonNull Class<T> clazz,
-                                      @NonNull T delegate,
-                                      @NonNull LifecycleOwner lifecycleOwner) {
-        if (null == proxyInstanceCreator) {
-            proxyInstanceCreator = new DynamicProxyInstanceCreator();
-        }
-        return proxyInstanceCreator.create(clazz, delegate, lifecycleOwner);
     }
 
 
