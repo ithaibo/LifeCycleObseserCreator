@@ -2,13 +2,12 @@ package com.howbuy.login;
 
 import android.arch.lifecycle.LifecycleOwner;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.util.SparseArray;
 
 public class LoginManagerImpl implements LoginManager{
     private SparseArray<LogoutObserver> logoutObserverSparseArray = new SparseArray<>();
     private SparseArray<LoginObserver> loginObserverSparseArray = new SparseArray<>();
-    private DynamicProxyInstanceCreator proxyInstanceCreator;
+    private ProxyInstanceFactory proxyInstanceCreator;
 
     public static LoginManager getInstance() {
         return H.instance;
@@ -76,11 +75,11 @@ public class LoginManagerImpl implements LoginManager{
     @SuppressWarnings("unchecked")
     private <T> T createProxyInstance(@NonNull Class<T> clazz,
                                       @NonNull T delegate,
-                                      @Nullable LifecycleOwner lifecycleOwner) {
+                                      @NonNull LifecycleOwner lifecycleOwner) {
         if (null == proxyInstanceCreator) {
             proxyInstanceCreator = new DynamicProxyInstanceCreator();
         }
-        return proxyInstanceCreator.createProxyInstance(clazz, delegate, lifecycleOwner);
+        return proxyInstanceCreator.create(clazz, delegate, lifecycleOwner);
     }
 
 

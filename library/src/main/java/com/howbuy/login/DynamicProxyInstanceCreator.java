@@ -20,38 +20,11 @@ import java.util.Queue;
 public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, InvocationHandlerCache{
     private final Map<Class, Queue<InvocationHandler>> invokePool = new HashMap<>(4);
     private final Map<Object, LifeEventObserver> lifeEventObserverMap = new HashMap<>();
-    private LoginManager loginManager;
-
-    {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                for (;;) {
-                    synchronized (invokePool) {
-                        System.out.println("ProxyInvoker, cache pool size: " + invokePool.size() + ", observer map size:" + lifeEventObserverMap.size());
-                        try {
-                            Thread.sleep(5000);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                            break;
-                        }
-                    }
-                }
-            }
-        }).start();
-    }
 
     @Override
-    public <T> T create(@NonNull Class<T> tClass,
+    public <T> T create(@NonNull Class<T> clazz,
                         @NonNull T delegate,
                         @NonNull LifecycleOwner lifecycleOwner) {
-        return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> T createProxyInstance(@NonNull Class<T> clazz,
-                                     @NonNull T delegate,
-                                     @NonNull LifecycleOwner lifecycleOwner) {
         InvocationHandler invocationHandler = obtainInvocationHandler(clazz,
                 delegate,
                 lifecycleOwner);
@@ -235,50 +208,4 @@ public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, Invoca
             return null;
         }
     }
-
-//    private static class Test {
-//        public static void main(String[] args) throws NoSuchMethodException {
-//            LifecycleOwner lifecycleOwner = new LifecycleOwner() {
-//                @NonNull
-//                @Override
-//                public Lifecycle getLifecycle() {
-//                    return new Lifecycle() {
-//                        @Override
-//                        public void addObserver(@NonNull LifecycleObserver observer) {
-//
-//                        }
-//
-//                        @Override
-//                        public void removeObserver(@NonNull LifecycleObserver observer) {
-//
-//                        }
-//
-//                        @NonNull
-//                        @Override
-//                        public State getCurrentState() {
-//                            return null;
-//                        }
-//                    };
-//                }
-//            };
-//            LoginObserver loginObserver = new DynamicProxyInstanceCreator().createProxyInstance(
-//                    LoginObserver.class,
-//                    new LoginObserver() {
-//                        @Override
-//                        public void onLogin() {
-//
-//                        }
-//                    },
-//                    lifecycleOwner
-//            );
-//            Class clazz = loginObserver.getClass();
-//            Method[] methods = clazz.getMethods();
-//            Method[] declaredMethods = clazz.getDeclaredMethods();
-//            Method methodhashCode = clazz.getMethod("hashCode");
-//            Object hashCode = InvocationHandlerImpl.handleDefaultReturn(methodhashCode);
-//            Method methodequals = clazz.getMethod("equals", Object.class);
-//            Object equals = InvocationHandlerImpl.handleDefaultReturn(methodequals);
-//            equals.toString();
-//        }
-//    }
 }
