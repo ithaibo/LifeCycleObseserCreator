@@ -1,10 +1,10 @@
 package com.howbuy.login;
 
-import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.LifecycleOwner;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
+import android.util.Log;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -18,11 +18,33 @@ import java.util.Map;
 import java.util.Queue;
 
 public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, InvocationHandlerCache{
-    private Map<Class, Queue<InvocationHandler>> invokePool = new HashMap<>(4);
-    private Map<Object, LifeEventObserver> lifeEventObserverMap = new HashMap<>();
+    private final Map<Class, Queue<InvocationHandler>> invokePool = new HashMap<>(4);
+    private final Map<Object, LifeEventObserver> lifeEventObserverMap = new HashMap<>();
+    private LoginManager loginManager;
+
+    {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (;;) {
+                    synchronized (invokePool) {
+                        System.out.println("ProxyInvoker, cache pool size: " + invokePool.size() + ", observer map size:" + lifeEventObserverMap.size());
+                        try {
+                            Thread.sleep(5000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                            break;
+                        }
+                    }
+                }
+            }
+        }).start();
+    }
 
     @Override
-    public <T> T create(@NonNull Class<T> tClass, @NonNull T delegate, @NonNull LifecycleOwner lifecycleOwner) {
+    public <T> T create(@NonNull Class<T> tClass,
+                        @NonNull T delegate,
+                        @NonNull LifecycleOwner lifecycleOwner) {
         return null;
     }
 
@@ -30,7 +52,9 @@ public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, Invoca
     public <T> T createProxyInstance(@NonNull Class<T> clazz,
                                      @NonNull T delegate,
                                      @NonNull LifecycleOwner lifecycleOwner) {
-        InvocationHandler invocationHandler = obtainInvocationHandler(clazz, delegate, lifecycleOwner);
+        InvocationHandler invocationHandler = obtainInvocationHandler(clazz,
+                delegate,
+                lifecycleOwner);
         T instance = (T) Proxy.newProxyInstance(LoginManagerImpl.class.getClassLoader(),
                 new Class[]{clazz, LifeEventObserver.class},
                 invocationHandler);
@@ -54,12 +78,16 @@ public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, Invoca
         shotHandler = (InvocationHandlerImpl<T>) cache.shot(clazz);
         if (null == shotHandler) {
             //create it directly
-//            Log.w("ProxyInstance", "invocationHandler cache not shot, class: " + clazz.getName());
-            return new InvocationHandlerImpl<>(delegate, clazz, DynamicProxyInstanceCreator.this, lifecycleOwner);
+            Log.w("ProxyInstance", "invocationHandler cache not shot, class: " + clazz.getName());
+            return new InvocationHandlerImpl<>(delegate,
+                    clazz,
+                    DynamicProxyInstanceCreator.this,
+                    lifecycleOwner);
         } else {
-//            Log.w("ProxyInstance", "invocationHandler cache shot, class: " + clazz.getName());
+            Log.w("ProxyInstance", "invocationHandler cache shot, class: " + clazz.getName());
             shotHandler.lifecycleOwner = lifecycleOwner;
             shotHandler.creatorRf = DynamicProxyInstanceCreator.this;
+            shotHandler.delegate = delegate;
             return shotHandler;
         }
     }
@@ -85,11 +113,13 @@ public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, Invoca
     }
 
 
-    private void removeObserverFromLifecycleOwner(LifecycleOwner lifecycleOwner, @NonNull Object object) {
+    private void removeObserverFromLifecycleOwner(LifecycleOwner lifecycleOwner,
+                                                  @NonNull Object object) {
         if (null == lifecycleOwner) return;
         LifeEventObserver eventObserver = lifeEventObserverMap.remove(object);
         if (null != eventObserver) {
             lifecycleOwner.getLifecycle().removeObserver(eventObserver);
+            //remove observer from loginmanager
         }
     }
 
@@ -115,59 +145,74 @@ public class DynamicProxyInstanceCreator implements ProxyInstanceFactory, Invoca
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            //method in Object
-            if (!isMethodOwnT(method)) {
-                if (null != delegate) return method.invoke(delegate, args);
-                return handleDefaultReturn(method);
+            if(Object.class == method.getDeclaringClass()) {
+                return method.invoke(this, args);
             }
 
-            //Method in
+            //method clear
             if (isClearMethod(method)) {
-                DynamicProxyInstanceCreator creator = creatorRf;
-                if (null != creator) {
-                    creator.cache(InvocationHandlerImpl.this.tClass, InvocationHandlerImpl.this);
-                    creator.removeObserverFromLifecycleOwner(lifecycleOwner, delegate);
-                }
-                lifecycleOwner = null;
-                creatorRf = null;
-                //remove delegate
-                delegate = null;
-                return null;
+                return handleInvocationClearMethodOfLifeEventObserver();
             }
 
+            Log.w("ProxyInvoker", "method now: " + method.getName() +
+                    ", class: " + method.getDeclaringClass());
             //no action after destroy
             if (null == delegate) return handleDefaultReturn(method);
 
             return method.invoke(delegate, args);
         }
 
+        private Object handleInvocationClearMethodOfLifeEventObserver() {
+            DynamicProxyInstanceCreator creator = creatorRf;
+            if (null != creator) {
+                creator.cache(InvocationHandlerImpl.this.tClass, InvocationHandlerImpl.this);
+                creator.removeObserverFromLifecycleOwner(lifecycleOwner, delegate);
+            }
+            lifecycleOwner = null;
+            creatorRf = null;
+            //remove delegate
+            delegate = null;
+            Log.w("ProxyInvoker", "method, clear invocation is handled");
+            return null;
+        }
+
         private static boolean isClearMethod(@NonNull Method method) {
+            if (LifeEventObserver.class != method.getDeclaringClass()) {
+                return false;
+            }
             if (null == clearMethod) {
                 try {
-                    clearMethod = LifeEventObserver.class.getMethod("clear");
+                    clearMethod = LifeEventObserver.class.getDeclaredMethod("clear");
                 } catch (NoSuchMethodException e) {
                     e.printStackTrace();
                     return false;
                 }
             }
-
-            Class<?> classDeclared = method.getDeclaringClass();
-            String nameMethod = method.getName();
-
-            return TextUtils.equals(clearMethod.getName(), nameMethod) &&
-                    (LifeEventObserver.class.equals(classDeclared));
-        }
-        private boolean isMethodOwnT(@NonNull Method method) {
-            if (null == tClass) return false;
-            if (null == tMethodList) {
-                tMethodList = Arrays.asList(tClass.getDeclaredMethods());
+            if (!areParameterTypesSameWithClearMethod(method)) {
+                return false;
             }
-            for (Method itemMethod : tMethodList) {
-                if (itemMethod.equals(method)) {
-                    return true;
+            if (!TextUtils.equals(clearMethod.getName(), method.getName())) {
+                return false;
+            }
+
+            Log.w("ProxyInvoker", "method is clear");
+            return true;
+        }
+
+        private static boolean areParameterTypesSameWithClearMethod(@NonNull Method method) {
+            Class[] typesTarget = clearMethod.getParameterTypes();
+            Class[] typesNow = method.getParameterTypes();
+            if (typesNow.length != typesTarget.length) {
+                return false;
+            }
+            for (int i =0; i< typesTarget.length; i++) {
+                Class itemType = typesTarget[i];
+                Class itemNow = typesNow[i];
+                if (itemType != itemNow) {
+                    return false;
                 }
             }
-            return false;
+            return true;
         }
 
         private static Object handleDefaultReturn(@NonNull Method method) {
